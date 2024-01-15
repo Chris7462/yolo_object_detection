@@ -19,7 +19,8 @@ def generate_launch_description():
     yolo_object_detection_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource([
             PathJoinSubstitution([
-                FindPackageShare('yolo_object_detection'), 'launch', 'yolo_object_detection_launch.py'
+                FindPackageShare('yolo_object_detection'), 'launch',
+                'yolo_object_detection_launch.py'
             ])
         ])
     )
@@ -28,7 +29,8 @@ def generate_launch_description():
         package='rviz2',
         executable='rviz2',
         name='rviz2',
-        arguments=['-d', join(get_package_share_directory('yolo_object_detection'), 'rviz', 'yolo_object_detection.rviz')]
+        arguments=['-d', join(get_package_share_directory('yolo_object_detection'),
+                              'rviz', 'yolo_object_detection.rviz')]
     )
 
     return LaunchDescription([

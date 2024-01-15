@@ -1,0 +1,5 @@
+yolo_object_detection_node:
+  ros__parameters:
+    model_path: "src/yolo_object_detection/models"
+    model: "yolov5s.onnx"
+    class: "classes.txt"
