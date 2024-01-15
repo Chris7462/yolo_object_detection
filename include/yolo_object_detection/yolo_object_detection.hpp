@@ -21,6 +21,13 @@ namespace yolo_object_detection
 
 namespace fs = std::filesystem;
 
+struct Detection
+{
+  int class_id;
+  float confidence;
+  cv::Rect box;
+};
+
 class YoloObjectDetection : public rclcpp::Node
 {
 public:
@@ -31,12 +38,18 @@ private:
   void img_callback(const sensor_msgs::msg::Image::SharedPtr msg);
   rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr img_sub_;
 
+  void timer_callback();
+  rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr yolo_pub_;
+  rclcpp::TimerBase::SharedPtr timer_;
+
   std::queue<sensor_msgs::msg::Image::SharedPtr> img_buff_;
 
   std::mutex mtx_;
 
   bool load_classes(fs::path class_file);
   void load_net(fs::path model_file);
+  cv::Mat format_yolov5(const cv::Mat & source);
+  void detect(cv::Mat & image, std::vector<Detection> & output);
 
   std::vector<std::string> class_list_;
   cv::dnn::Net net_;

@@ -3,7 +3,7 @@ from os.path import join
 from ament_index_python.packages import get_package_share_directory
 
 from launch import LaunchDescription
-from launch.actions import ExecuteProcess, IncludeLaunchDescription
+from launch.actions import ExecuteProcess, IncludeLaunchDescription, TimerAction
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import PathJoinSubstitution
 from launch_ros.actions import Node, SetParameter
@@ -36,6 +36,11 @@ def generate_launch_description():
     return LaunchDescription([
         SetParameter(name='use_sim_time', value=True),
         bag_exec,
-        yolo_object_detection_launch,
-        rviz_node
+        rviz_node,
+        TimerAction(
+            period=1.0, # delay these nodes for 1.0 seconds.
+            actions=[
+                yolo_object_detection_launch
+            ]
+        )
     ])
