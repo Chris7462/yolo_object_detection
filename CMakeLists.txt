@@ -30,7 +30,8 @@ ament_target_dependencies(yolo_object_detection_node PUBLIC
   cv_bridge)
 
 target_link_libraries(yolo_object_detection_node PUBLIC
-  ${OpenCV_LIBS})
+  opencv_core
+  opencv_dnn)
 
 target_compile_features(yolo_object_detection_node PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
 

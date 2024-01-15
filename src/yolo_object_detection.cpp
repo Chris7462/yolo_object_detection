@@ -2,6 +2,8 @@
 #include <fstream>
 #include <chrono>
 
+#include <opencv2/core/cuda.hpp>
+
 // ROS header
 #include <cv_bridge/cv_bridge.h>
 
@@ -73,15 +75,17 @@ void YoloObjectDetection::timer_callback()
           auto color = colors[class_id % colors.size()];
 
           cv::rectangle(cv_image, box, color, 2);
-          cv::rectangle(cv_image, cv::Point(box.x, box.y - 10.0),
+          cv::rectangle(
+            cv_image, cv::Point(box.x, box.y - 10.0),
             cv::Point(box.x + box.width, box.y), color, cv::FILLED);
-          cv::putText(cv_image, class_list_[class_id].c_str(), cv::Point(box.x, box.y - 5.0),
+          cv::putText(
+            cv_image, class_list_[class_id].c_str(), cv::Point(box.x, box.y - 5.0),
             cv::FONT_HERSHEY_SIMPLEX, 0.25, cv::Scalar(0.0, 0.0, 0.0));
         }
 
         // Convert OpenCV image to ROS Image message
         auto out_msg = cv_bridge::CvImage(std_msgs::msg::Header(), "bgr8", cv_image).toImageMsg();
-        out_msg->header.frame_id = "cam1_link";
+        out_msg->header.frame_id = "cam2_link";
         out_msg->header.stamp = current_time;
         yolo_pub_->publish(*out_msg);
 
@@ -137,7 +141,8 @@ void YoloObjectDetection::detect(cv::Mat & image, std::vector<Detection> & outpu
   auto input_image = format_yolov5(image);
 
   cv::Mat blob;
-  cv::dnn::blobFromImage(input_image, blob, 1./255., cv::Size(INPUT_WIDTH, INPUT_HEIGHT), cv::Scalar(), true, false);
+  cv::dnn::blobFromImage(
+    input_image, blob, 1.0 / 255.0, cv::Size(INPUT_WIDTH, INPUT_HEIGHT), cv::Scalar(), true, false);
   net_.setInput(blob);
 
   std::vector<cv::Mat> outputs;
@@ -146,7 +151,7 @@ void YoloObjectDetection::detect(cv::Mat & image, std::vector<Detection> & outpu
   float x_factor = input_image.cols / INPUT_WIDTH;
   float y_factor = input_image.rows / INPUT_HEIGHT;
 
-  float * data = (float*)outputs[0].data;
+  float * data = (float *)outputs[0].data;
 
   std::vector<int> class_ids;
   std::vector<float> confidences;
@@ -190,4 +195,4 @@ void YoloObjectDetection::detect(cv::Mat & image, std::vector<Detection> & outpu
   }
 }
 
-}
+} // namespace yolo_object_detection

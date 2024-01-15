@@ -25,4 +25,4 @@ const int CLASS_DIMENSIONS = 85;
 const int OUTPUT_ROWS = 25200;
 // Details: https://user-images.githubusercontent.com/58934176/105021013-554a2600-5a48-11eb-90ef-6656a7fe63bb.png
 
-};
+} // namespace yolo_object_detection

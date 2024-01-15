@@ -38,7 +38,7 @@ def generate_launch_description():
         bag_exec,
         rviz_node,
         TimerAction(
-            period=1.0, # delay these nodes for 1.0 seconds.
+            period=1.0,  # delay these nodes for 1.0 seconds.
             actions=[
                 yolo_object_detection_launch
             ]

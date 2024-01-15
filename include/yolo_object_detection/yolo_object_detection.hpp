@@ -9,7 +9,9 @@
 #include <filesystem>
 
 // openCV header
-#include <opencv2/opencv.hpp>
+//#include <opencv2/opencv.hpp>
+#include <opencv2/core.hpp>
+#include <opencv2/dnn.hpp>
 
 // ROS header
 #include <rclcpp/rclcpp.hpp>
@@ -55,4 +57,4 @@ private:
   cv::dnn::Net net_;
 };
 
-}
+} // namespace yolo_object_detection
