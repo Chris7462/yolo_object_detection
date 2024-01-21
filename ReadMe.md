@@ -12,22 +12,23 @@ mkdir build
 cd build
 cmake -DCMAKE_BUILD_TYPE=RELEASE \
       -DCMAKE_INSTALL_PREFIX=/usr/local \
+      -DCUDA_ARCH_BIN=7.5 \
+      -DENABLE_CUDA_FIRST_CLASS_LANGUAGE=ON \
+      -DOPENCV_DNN_CUDA=ON \
+      -DWITH_CUBLAS=1 \
+      -DWITH_CUDA=ON \
+      -DWITH_CUDNN=ON \
+      -DCUDA_FAST_MATH=1 \
+      -DENABLE_FAST_MATH=1 \
+      -DHAVE_opencv_python3=ON \
+      -DWITH_TBB=ON \
+      -DBUILD_opencv_sfm=ON \
+      -DBUILD_opencv_cudacodec=ON \
+      -DBUILD_EXAMPLES=ON \
       -DINSTALL_PYTHON_EXAMPLES=ON \
       -DINSTALL_C_EXAMPLES=ON \
       -DOPENCV_ENABLE_NONFREE=ON \
-      -DWITH_CUDA=ON \
-      -DWITH_CUDNN=ON \
-      -DOPENCV_DNN_CUDA=ON \
-      -DENABLE_FAST_MATH=1 \
-      -DCUDA_FAST_MATH=1 \
-      -DCUDA_ARCH_BIN=7.5 \
-      -DWITH_CUBLAS=1 \
-      -DOPENCV_EXTRA_MODULES_PATH=~/thirdparty/opencv_contrib/modules \
-      -DHAVE_opencv_python3=ON \
-      -DWITH_TBB=ON \
-      -DBUILD_opencv_cudacodec=ON \
-      -DBUILD_EXAMPLES=ON \
-      -DBUILD_opencv_sfm=OFF ..
+      -DOPENCV_EXTRA_MODULES_PATH=~/thirdparty/opencv_contrib/modules ..
 ```
 The CMake arg CUDA\_ARCH\_BIN is depending on your nVidia graphic card. Check [wiki](https://en.wikipedia.org/wiki/CUDA) for the reference.
 
