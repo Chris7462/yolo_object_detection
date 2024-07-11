@@ -6,7 +6,6 @@
 //  #include <memory>
 //  #include <vector>
 //  #include <string>
-//  #include <filesystem>
 
 //  // openCV header
 //  //#include <opencv2/opencv.hpp>
@@ -17,11 +16,11 @@
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/image.hpp>
 
+// local header
+#include "yolo_inference/inference.hpp"
 
 namespace yolo_object_detection
 {
-
-namespace fs = std::filesystem;
 
 class YoloObjectDetection : public rclcpp::Node
 {
@@ -40,6 +39,8 @@ private:
   std::queue<sensor_msgs::msg::Image::SharedPtr> img_buff_;
 
   std::mutex mtx_;
+
+  yolo::Inference inference_;
 
 //  bool load_classes(fs::path class_file);
 //  void load_net(fs::path model_file);

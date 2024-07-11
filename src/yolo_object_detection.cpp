@@ -1,6 +1,10 @@
 // C++ header
 //  #include <fstream>
 #include <chrono>
+#include <filesystem>
+
+// OpenCV header
+#include <opencv2/core.hpp>
 
 //  #include <opencv2/core/cuda.hpp>
 
@@ -15,22 +19,26 @@
 namespace yolo_object_detection
 {
 
+namespace fs = std::filesystem;
 using namespace std::chrono_literals;
 
+
 YoloObjectDetection::YoloObjectDetection()
-: Node("yolo_object_detection_node")
+: Node("yolo_object_detection_node"), inference_()
 {
   bool enable_gpu = declare_parameter("enable_gpu", false);
-//  fs::path model_path = declare_parameter("model_path", fs::path());
-//  fs::path model_file = model_path / declare_parameter("model", std::string());
+  fs::path model_path = declare_parameter("model_path", fs::path());
+  fs::path model_file = model_path / declare_parameter("model_file", std::string());
 //  fs::path class_file = model_path / declare_parameter("class", std::string());
 
-//  if (!load_classes(class_file)) {
-//    RCLCPP_ERROR(get_logger(), "Load class list failed");
-//    rclcpp::shutdown();
-//  }
+  if (!fs::exists(model_file)) {
+    RCLCPP_ERROR(get_logger(), "Load model failed");
+    rclcpp::shutdown();
+  }
 
-//  load_net(model_file);
+  // Initialize inference here. Not ideal, just quickly make it runnable.
+  // Note that in this example the classes are hard-coded and 'classes.txt' is a place holder.
+  inference_ = yolo::Inference(model_file.string(), cv::Size(640, 480), "classes.txt", enable_gpu);
 
   rclcpp::QoS qos(10);
   img_sub_ = this->create_subscription<sensor_msgs::msg::Image>(
