@@ -1,5 +1,6 @@
 // C++ header
 //  #include <fstream>
+#include <string>
 #include <chrono>
 #include <filesystem>
 
@@ -8,8 +9,8 @@
 
 //  #include <opencv2/core/cuda.hpp>
 
-//  // ROS header
-//  #include <cv_bridge/cv_bridge.h>
+// ROS header
+#include <cv_bridge/cv_bridge.h>
 
 //  // local header
 //  #include "yolo_object_detection/yolo_const.hpp"
@@ -73,34 +74,43 @@ void YoloObjectDetection::timer_callback()
       img_buff_.pop();
       mtx_.unlock();
 
-//    try {
-//      cv::Mat cv_image = cv_bridge::toCvCopy(input_msg, "bgr8")->image;
-//      std::vector<Detection> detections;
-//      detect(cv_image, detections);
+      try {
+        cv::Mat cv_image = cv_bridge::toCvCopy(input_msg, "bgr8")->image;
 
-//      for (const auto & detection : detections) {
-//        auto box = detection.box;
-//        auto class_id = detection.class_id;
-//        auto color = colors[class_id % colors.size()];
+        // Inference starts here...
+        std::vector<yolo::Detection> detections = inference_.runInference(cv_image);
 
-//        cv::rectangle(cv_image, box, color, 2);
-//        cv::rectangle(
-//          cv_image, cv::Point(box.x, box.y - 10.0),
-//          cv::Point(box.x + box.width, box.y), color, cv::FILLED);
-//        cv::putText(
-//          cv_image, class_list_[class_id].c_str(), cv::Point(box.x, box.y - 5.0),
-//          cv::FONT_HERSHEY_SIMPLEX, 0.25, cv::Scalar(0.0, 0.0, 0.0));
-//      }
+        // size_t detection_size = detections.size();
+        // std::cout << "Number of detections:" << detection_size << std::endl;
 
-//      // Convert OpenCV image to ROS Image message
-//      auto out_msg = cv_bridge::CvImage(std_msgs::msg::Header(), "bgr8", cv_image).toImageMsg();
-//      out_msg->header.frame_id = "cam2_link";
-//      out_msg->header.stamp = current_time;
-//      yolo_pub_->publish(*out_msg);
+        for (const auto & detection : detections) {
+          auto box = detection.box;
+          auto color = detection.color;
+          // auto class_id = detection.class_id;
 
-//    } catch (cv_bridge::Exception & e) {
-//      RCLCPP_ERROR(get_logger(), "CV_Bridge exception: %s", e.what());
-//    }
+          // Detection box
+          cv::rectangle(cv_image, box, color, 2);
+
+          // Detection box text
+          std::string class_string = detection.className + ' ' + std::to_string(detection.confidence).substr(0, 4);
+          cv::Size text_size = cv::getTextSize(class_string, cv::FONT_HERSHEY_DUPLEX, 1, 2, 0);
+          cv::Rect text_box(box.x, box.y - 40, text_size.width + 10, text_size.height + 20);
+
+          cv::rectangle(cv_image, text_box, color, cv::FILLED);
+          cv::putText(cv_image, class_string, cv::Point(box.x + 5, box.y - 10),
+            cv::FONT_HERSHEY_DUPLEX, 1, cv::Scalar(0, 0, 0), 2, 0);
+        }
+        // Inference ends here...
+
+        // Convert OpenCV image to ROS Image message
+        auto out_msg = cv_bridge::CvImage(std_msgs::msg::Header(), "bgr8", cv_image).toImageMsg();
+        out_msg->header.frame_id = "cam2_link";
+        out_msg->header.stamp = current_time;
+        yolo_pub_->publish(*out_msg);
+
+      } catch (cv_bridge::Exception & e) {
+        RCLCPP_ERROR(get_logger(), "CV_Bridge exception: %s", e.what());
+      }
     }
   }
 }
