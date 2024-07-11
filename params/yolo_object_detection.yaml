@@ -1,5 +1,6 @@
 yolo_object_detection_node:
   ros__parameters:
+    enable_gpu: true
     model_path: "install/yolo_object_detection/share/yolo_object_detection/models"
     model: "yolov5s.onnx"
     class: "classes.txt"

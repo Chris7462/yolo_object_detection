@@ -12,8 +12,8 @@ find_package(ament_cmake REQUIRED)
 # find_package(<dependency> REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(sensor_msgs REQUIRED)
-find_package(cv_bridge REQUIRED)
-find_package(OpenCV REQUIRED)
+# find_package(cv_bridge REQUIRED)
+# find_package(OpenCV REQUIRED)
 
 add_executable(yolo_object_detection_node
   src/yolo_object_detection_node.cpp
@@ -21,17 +21,17 @@ add_executable(yolo_object_detection_node
 
 target_include_directories(yolo_object_detection_node PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-  $<INSTALL_INTERFACE:include>
-  ${OpenCV_INCLUDE_DIRS})
+  $<INSTALL_INTERFACE:include>)
+#  ${OpenCV_INCLUDE_DIRS})
 
 ament_target_dependencies(yolo_object_detection_node PUBLIC
   rclcpp
-  sensor_msgs
-  cv_bridge)
+  sensor_msgs)
+#   cv_bridge)
 
-target_link_libraries(yolo_object_detection_node PUBLIC
-  opencv_core
-  opencv_dnn)
+# target_link_libraries(yolo_object_detection_node PUBLIC
+#   opencv_core
+#   opencv_dnn)
 
 target_compile_features(yolo_object_detection_node PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
 
