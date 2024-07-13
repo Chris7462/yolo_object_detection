@@ -13,6 +13,7 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(cv_bridge REQUIRED)
+find_package(yolo_inference REQUIRED)
 find_package(OpenCV REQUIRED)
 
 add_executable(yolo_object_detection_node
@@ -27,11 +28,11 @@ target_include_directories(yolo_object_detection_node PUBLIC
 ament_target_dependencies(yolo_object_detection_node PUBLIC
   rclcpp
   sensor_msgs
-  cv_bridge)
+  cv_bridge
+  yolo_inference)
 
 target_link_libraries(yolo_object_detection_node PUBLIC
-  opencv_core
-  opencv_dnn)
+  opencv_core)
 
 target_compile_features(yolo_object_detection_node PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
 
