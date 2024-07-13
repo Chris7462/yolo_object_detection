@@ -1,5 +1,4 @@
 // C++ header
-//  #include <fstream>
 #include <string>
 #include <chrono>
 #include <filesystem>
@@ -7,13 +6,10 @@
 // OpenCV header
 #include <opencv2/core.hpp>
 
-//  #include <opencv2/core/cuda.hpp>
-
 // ROS header
 #include <cv_bridge/cv_bridge.h>
 
 //  // local header
-//  #include "yolo_object_detection/yolo_const.hpp"
 #include "yolo_object_detection/yolo_object_detection.hpp"
 
 
@@ -23,12 +19,17 @@ namespace yolo_object_detection
 namespace fs = std::filesystem;
 using namespace std::chrono_literals;
 
+const std::vector<cv::Scalar> colors = {
+  cv::Scalar(255, 255, 0),
+  cv::Scalar(0, 255, 0),
+  cv::Scalar(0, 255, 255),
+  cv::Scalar(255, 0, 0)};
+
 YoloObjectDetection::YoloObjectDetection()
 : Node("yolo_object_detection_node"), inference_()
 {
   fs::path model_path = declare_parameter("model_path", fs::path());
   fs::path model_file = model_path / declare_parameter("model_file", std::string());
-  // fs::path class_file = model_path / declare_parameter("class", std::string());
 
   if (!fs::exists(model_file)) {
     RCLCPP_ERROR(get_logger(), "Load model failed");
@@ -83,8 +84,8 @@ void YoloObjectDetection::timer_callback()
 
         for (const auto & detection : detections) {
           auto box = detection.box;
-          auto color = detection.color;
-          // auto class_id = detection.class_id;
+          auto class_id = detection.class_id;
+          auto color = colors[class_id % colors.size()];
 
           // Detection box
           cv::rectangle(cv_image, box, color, 2);
