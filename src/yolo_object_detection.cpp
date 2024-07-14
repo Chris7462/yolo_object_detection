@@ -1,9 +1,10 @@
 // C++ header
 #include <string>
 #include <chrono>
-#include <filesystem>
+#include <fstream>
 
 // OpenCV header
+#include <opencv2/core/cuda.hpp>
 #include <opencv2/core.hpp>
 
 // ROS header
@@ -16,7 +17,6 @@
 namespace yolo_object_detection
 {
 
-namespace fs = std::filesystem;
 using namespace std::chrono_literals;
 
 const std::vector<cv::Scalar> colors = {
@@ -26,19 +26,50 @@ const std::vector<cv::Scalar> colors = {
   cv::Scalar(255, 0, 0)};
 
 YoloObjectDetection::YoloObjectDetection()
-: Node("yolo_object_detection_node"), inference_()
+: Node("yolo_object_detection_node")//, inference_()
 {
+  std::string yolo_model = declare_parameter("yolo_model", std::string());
   fs::path model_path = declare_parameter("model_path", fs::path());
   fs::path model_file = model_path / declare_parameter("model_file", std::string());
+  fs::path classes_file = model_path / declare_parameter("classes_file", std::string());
+
+//  int nc = parser.get<int>("nc");
+
+//  float confThreshold = parser.get<float>("thr");
+//  float nmsThreshold = parser.get<float>("nms");
+//  //![preprocess_params]
+//  float paddingValue = parser.get<float>("padvalue");
+//  bool swapRB = parser.get<bool>("rgb");
+//  int inpWidth = parser.get<int>("width");
+//  int inpHeight = parser.get<int>("height");
+//  Scalar scale = parser.get<float>("scale");
+//  Scalar mean = parser.get<Scalar>("mean");
+//  ImagePaddingMode paddingMode = static_cast<ImagePaddingMode>(parser.get<int>("paddingmode"));
+//  //![preprocess_params]
+
+  // check if yolo model is valid
+  if (yolo_model != "yolov5" && yolo_model != "yolov6" &&
+      yolo_model != "yolov7" && yolo_model != "yolov8" &&
+      yolo_model != "yolov9" && yolo_model != "yolov10") {
+    RCLCPP_ERROR(get_logger(), "Invalid yolo model: %s", yolo_model.c_str());
+    rclcpp::shutdown();
+  }
 
   if (!fs::exists(model_file)) {
     RCLCPP_ERROR(get_logger(), "Load model failed");
     rclcpp::shutdown();
   }
 
+  if (!get_classes(classes_file)) {
+    RCLCPP_ERROR(get_logger(), "Load classes list failed");
+    rclcpp::shutdown();
+  }
+
+  load_net(model_file);
+
   // Initialize inference here. Not ideal, just quickly make it runnable.
   // Note that in this example the classes are hard-coded and 'classes.txt' is a place holder.
-  inference_ = yolo::Inference(model_file.string(), cv::Size(640, 480), "classes.txt");
+  //inference_ = yolo::Inference(model_file.string(), cv::Size(640, 480), "classes.txt");
 
   rclcpp::QoS qos(10);
   img_sub_ = this->create_subscription<sensor_msgs::msg::Image>(
@@ -73,50 +104,79 @@ void YoloObjectDetection::timer_callback()
       img_buff_.pop();
       mtx_.unlock();
 
-      try {
-        cv::Mat cv_image = cv_bridge::toCvCopy(input_msg, "bgr8")->image;
+//    try {
+//      cv::Mat cv_image = cv_bridge::toCvCopy(input_msg, "bgr8")->image;
 
-        // Inference starts here...
-        std::vector<yolo::Detection> detections = inference_.runInference(cv_image);
+//      // Inference starts here...
+//      std::vector<yolo::Detection> detections = inference_.runInference(cv_image);
 
-        // size_t detection_size = detections.size();
-        // std::cout << "Number of detections:" << detection_size << std::endl;
+//      // size_t detection_size = detections.size();
+//      // std::cout << "Number of detections:" << detection_size << std::endl;
 
-        for (const auto & detection : detections) {
-          auto box = detection.box;
-          auto class_id = detection.class_id;
-          auto color = colors[class_id % colors.size()];
+//      for (const auto & detection : detections) {
+//        auto box = detection.box;
+//        auto class_id = detection.class_id;
+//        auto color = colors[class_id % colors.size()];
 
-          // Detection box
-          cv::rectangle(cv_image, box, color, 2);
+//        // Detection box
+//        cv::rectangle(cv_image, box, color, 2);
 
-          // Detection box text
-          std::string class_string = detection.className + ' ' + std::to_string(detection.confidence).substr(0, 4);
-          //  cv::Size text_size = cv::getTextSize(class_string, cv::FONT_HERSHEY_DUPLEX, 1, 2, 0);
-          //  cv::Rect text_box(box.x, box.y - 40, text_size.width + 10, text_size.height + 20);
+//        // Detection box text
+//        std::string class_string = detection.className + ' ' + std::to_string(detection.confidence).substr(0, 4);
+//        //  cv::Size text_size = cv::getTextSize(class_string, cv::FONT_HERSHEY_DUPLEX, 1, 2, 0);
+//        //  cv::Rect text_box(box.x, box.y - 40, text_size.width + 10, text_size.height + 20);
 
-          //  cv::rectangle(cv_image, text_box, color, cv::FILLED);
-          //  cv::putText(cv_image, class_string, cv::Point(box.x + 5, box.y - 10),
-          //    cv::FONT_HERSHEY_DUPLEX, 1, cv::Scalar(0, 0, 0), 2, 0);
-          cv::rectangle(
-            cv_image, cv::Point(box.x, box.y - 10.0),
-            cv::Point(box.x + box.width, box.y), color, cv::FILLED);
-          cv::putText(
-            cv_image, class_string, cv::Point(box.x, box.y - 5.0),
-            cv::FONT_HERSHEY_SIMPLEX, 0.25, cv::Scalar(0.0, 0.0, 0.0));
-        }
-        // Inference ends here...
+//        //  cv::rectangle(cv_image, text_box, color, cv::FILLED);
+//        //  cv::putText(cv_image, class_string, cv::Point(box.x + 5, box.y - 10),
+//        //    cv::FONT_HERSHEY_DUPLEX, 1, cv::Scalar(0, 0, 0), 2, 0);
+//        cv::rectangle(
+//          cv_image, cv::Point(box.x, box.y - 10.0),
+//          cv::Point(box.x + box.width, box.y), color, cv::FILLED);
+//        cv::putText(
+//          cv_image, class_string, cv::Point(box.x, box.y - 5.0),
+//          cv::FONT_HERSHEY_SIMPLEX, 0.25, cv::Scalar(0.0, 0.0, 0.0));
+//      }
+//      // Inference ends here...
 
-        // Convert OpenCV image to ROS Image message
-        auto out_msg = cv_bridge::CvImage(std_msgs::msg::Header(), "bgr8", cv_image).toImageMsg();
-        out_msg->header.frame_id = "cam2_link";
-        out_msg->header.stamp = current_time;
-        yolo_pub_->publish(*out_msg);
+//      // Convert OpenCV image to ROS Image message
+//      auto out_msg = cv_bridge::CvImage(std_msgs::msg::Header(), "bgr8", cv_image).toImageMsg();
+//      out_msg->header.frame_id = "cam2_link";
+//      out_msg->header.stamp = current_time;
+//      yolo_pub_->publish(*out_msg);
 
-      } catch (cv_bridge::Exception & e) {
-        RCLCPP_ERROR(get_logger(), "CV_Bridge exception: %s", e.what());
-      }
+//    } catch (cv_bridge::Exception & e) {
+//      RCLCPP_ERROR(get_logger(), "CV_Bridge exception: %s", e.what());
+//    }
     }
+  }
+}
+
+bool YoloObjectDetection::get_classes(std::string classes_file)
+{
+  std::ifstream ifs(classes_file.c_str());
+  if (!ifs.is_open()) {
+    RCLCPP_ERROR(get_logger(), "File %s not found", classes_file.c_str());
+    return false;
+  } else {
+    std::string line;
+    while (std::getline(ifs, line)) {
+      classes_.push_back(line);
+    }
+    return true;
+  }
+}
+
+void YoloObjectDetection::load_net(fs::path model_file)
+{
+  net_ = cv::dnn::readNet(model_file);
+  if (cv::cuda::getCudaEnabledDeviceCount() > 0) {
+    RCLCPP_INFO(get_logger(), "CUDA is available. Attempy to use CUDA");
+    net_.setPreferableBackend(cv::dnn::DNN_BACKEND_CUDA);
+    net_.setPreferableTarget(cv::dnn::DNN_TARGET_CUDA_FP16);
+  } else {
+    RCLCPP_INFO(get_logger(), "No CUDA-enabled devices found. Running on CPU");
+    net_.setPreferableBackend(cv::dnn::DNN_BACKEND_OPENCV);
+    net_.setPreferableTarget(cv::dnn::DNN_TARGET_CPU);
   }
 }
 

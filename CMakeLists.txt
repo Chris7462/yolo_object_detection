@@ -13,7 +13,7 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(cv_bridge REQUIRED)
-find_package(yolo_inference REQUIRED)
+# find_package(yolo_inference REQUIRED)
 find_package(OpenCV REQUIRED)
 
 add_executable(yolo_object_detection_node
@@ -28,8 +28,8 @@ target_include_directories(yolo_object_detection_node PUBLIC
 ament_target_dependencies(yolo_object_detection_node PUBLIC
   rclcpp
   sensor_msgs
-  cv_bridge
-  yolo_inference)
+  cv_bridge)
+#   yolo_inference)
 
 target_link_libraries(yolo_object_detection_node PUBLIC
   opencv_core)

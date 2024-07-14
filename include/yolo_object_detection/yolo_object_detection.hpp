@@ -3,16 +3,22 @@
 // C++ header
 #include <queue>
 #include <mutex>
+#include <filesystem>
 
 // ROS header
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/image.hpp>
 
+// OpenCV header
+#include <opencv2/dnn.hpp>
+
 // local header
-#include "yolo_inference/inference.hpp"
+// #include "yolo_inference/inference.hpp"
 
 namespace yolo_object_detection
 {
+
+namespace fs = std::filesystem;
 
 class YoloObjectDetection : public rclcpp::Node
 {
@@ -32,7 +38,12 @@ private:
 
   std::mutex mtx_;
 
-  yolo::Inference inference_;
+  bool get_classes(std::string classes_file);
+
+  std::vector<std::string> classes_;
+  void load_net(fs::path model_file);
+
+  cv::dnn::Net net_;
 };
 
 } // namespace yolo_object_detection

@@ -1,4 +1,6 @@
 yolo_object_detection_node:
   ros__parameters:
+    yolo_model: "yolov8"
     model_path: "install/yolo_object_detection/share/yolo_object_detection/models"
-    model_file: "yolov8s.onnx"  # or yolov5su.onnx
+    model_file: "yolov8n.onnx"
+    classes_file: "classes.txt"
