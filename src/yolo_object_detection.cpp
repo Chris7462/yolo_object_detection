@@ -7,9 +7,9 @@
 #include <opencv2/core.hpp>
 
 // ROS header
-#include <cv_bridge/cv_bridge.h>
+#include <cv_bridge/cv_bridge.hpp>
 
-//  // local header
+// local header
 #include "yolo_object_detection/yolo_object_detection.hpp"
 
 
