@@ -23,7 +23,7 @@ mkdir build
 cd build
 cmake -DCMAKE_BUILD_TYPE=RELEASE \
       -DCMAKE_INSTALL_PREFIX=/usr/local \
-      -DCUDA_ARCH_BIN=7.5 \
+      -DCUDA_ARCH_BIN=12.0 \
       -DENABLE_CUDA_FIRST_CLASS_LANGUAGE=ON \
       -DOPENCV_DNN_CUDA=ON \
       -DWITH_CUBLAS=1 \
