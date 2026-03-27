@@ -23,7 +23,7 @@ mkdir build
 cd build
 cmake -DCMAKE_BUILD_TYPE=RELEASE \
       -DCMAKE_INSTALL_PREFIX=/usr/local \
-      -DCUDA_ARCH_BIN=12.0 \
+      -DCUDA_ARCH_BIN="8.9;12.0" \
       -DENABLE_CUDA_FIRST_CLASS_LANGUAGE=ON \
       -DOPENCV_DNN_CUDA=ON \
       -DWITH_CUBLAS=1 \
@@ -31,15 +31,20 @@ cmake -DCMAKE_BUILD_TYPE=RELEASE \
       -DWITH_CUDNN=ON \
       -DCUDA_FAST_MATH=1 \
       -DENABLE_FAST_MATH=1 \
-      -DHAVE_opencv_python3=ON \
+      -DBUILD_opencv_python3=ON \
+      -DPYTHON3_EXECUTABLE=$(which python3) \
       -DWITH_TBB=ON \
+      -DWITH_GSTREAMER=ON \
+      -DWITH_FFMPEG=ON \
+      -DWITH_OPENMP=ON \
       -DBUILD_opencv_sfm=ON \
       -DBUILD_opencv_cudacodec=ON \
       -DBUILD_EXAMPLES=ON \
       -DINSTALL_PYTHON_EXAMPLES=ON \
       -DINSTALL_C_EXAMPLES=ON \
       -DOPENCV_ENABLE_NONFREE=ON \
-      -DOPENCV_EXTRA_MODULES_PATH=~/thirdparty/opencv_contrib/modules ..
+      -DOPENCV_EXTRA_MODULES_PATH=/home/yi-chen/thirdparty/opencv_contrib/modules \
+      ..
 ```
 The CMake arg CUDA\_ARCH\_BIN is depending on your nVidia graphic card. Check [wiki](https://en.wikipedia.org/wiki/CUDA) for the reference.
 
