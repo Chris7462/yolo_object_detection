@@ -1,0 +1,8 @@
+yolo_object_detection_node:
+  ros__parameters:
+    model_path: "install/yolo_object_detection/share/yolo_object_detection/model"
+    model_file: "yolov8s.onnx"
+    processing_frequency: 50.0
+    max_processing_queue_size: 3
+    input_topic: "kitti/camera/color/left/image_raw"
+    output_topic: "yolo_object_detection"
