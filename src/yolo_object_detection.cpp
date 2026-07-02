@@ -1,10 +1,12 @@
 // C++ header
 #include <string>
 #include <chrono>
-#include <filesystem>
+#include <functional>
+#include <exception>
 
 // OpenCV header
 #include <opencv2/core.hpp>
+#include <opencv2/highgui.hpp>
 
 // ROS header
 #include <cv_bridge/cv_bridge.hpp>
@@ -16,107 +18,209 @@
 namespace yolo_object_detection
 {
 
-namespace fs = std::filesystem;
-using namespace std::chrono_literals;
-
-const std::vector<cv::Scalar> colors = {
-  cv::Scalar(255, 255, 0),
-  cv::Scalar(0, 255, 0),
-  cv::Scalar(0, 255, 255),
-  cv::Scalar(255, 0, 0)};
-
 YoloObjectDetection::YoloObjectDetection()
-: Node("yolo_object_detection_node"), inference_()
+: Node("yolo_object_detection_node"),
+  processing_in_progress_(false)
 {
-  fs::path model_path = declare_parameter("model_path", fs::path());
-  fs::path model_file = model_path / declare_parameter("model_file", std::string());
-
-  if (!fs::exists(model_file)) {
-    RCLCPP_ERROR(get_logger(), "Load model failed");
+  if (!initialize_parameters()) {
+    RCLCPP_ERROR(get_logger(), "Failed to initialize parameters");
     rclcpp::shutdown();
+    return;
   }
 
-  // Initialize inference here. Not ideal, just quickly make it runnable.
-  // Note that in this example the classes are hard-coded and 'classes.txt' is a place holder.
-  inference_ = yolo::Inference(model_file.string(), cv::Size(640, 480), "classes.txt");
+  inference_ = yolo::Inference(model_file_.string(), cv::Size(640, 480), "");
 
-  rclcpp::QoS qos(10);
-  img_sub_ = this->create_subscription<sensor_msgs::msg::Image>(
-    "kitti/camera/color/left/image_raw", qos, std::bind(
-      &YoloObjectDetection::img_callback, this, std::placeholders::_1));
+  initialize_ros_components();
 
-  yolo_pub_ = this->create_publisher<sensor_msgs::msg::Image>(
-    "yolo_object_detection", qos);
+  RCLCPP_INFO(get_logger(),
+    "YOLO object detection node initialized successfully with bounded queue (max: %d)",
+    max_processing_queue_size_);
+}
 
-  timer_ = this->create_wall_timer(
-    25ms, std::bind(&YoloObjectDetection::timer_callback, this));
+YoloObjectDetection::~YoloObjectDetection()
+{
+  RCLCPP_INFO(get_logger(), "YOLO object detection node shutting down");
+}
+
+bool YoloObjectDetection::initialize_parameters()
+{
+  try {
+    model_path_ = fs::path(declare_parameter("model_path", ""));
+    model_file_ = model_path_ / declare_parameter("model_file", "");
+
+    if (model_file_.empty()) {
+      RCLCPP_ERROR(get_logger(), "Model file path is empty");
+      return false;
+    }
+
+    if (!fs::exists(model_file_)) {
+      RCLCPP_ERROR(get_logger(), "Model file does not exist: %s", model_file_.c_str());
+      return false;
+    }
+
+    processing_frequency_ = declare_parameter<double>("processing_frequency", 50.0);
+    if (processing_frequency_ <= 0) {
+      RCLCPP_ERROR(get_logger(), "Invalid processing frequency: %.2f Hz", processing_frequency_);
+      return false;
+    }
+
+    max_processing_queue_size_ = declare_parameter<int>("max_processing_queue_size", 3);
+    if (max_processing_queue_size_ <= 0 || max_processing_queue_size_ > 10) {
+      RCLCPP_ERROR(get_logger(), "Invalid max processing queue size: %d (should be 1-10)",
+        max_processing_queue_size_);
+      return false;
+    }
+
+    return true;
+
+  } catch (const std::exception & e) {
+    RCLCPP_ERROR(get_logger(), "Exception during parameter initialization: %s", e.what());
+    return false;
+  }
+}
+
+void YoloObjectDetection::initialize_ros_components()
+{
+  rclcpp::QoS image_qos(10);
+  image_qos.reliability(rclcpp::ReliabilityPolicy::BestEffort);
+  image_qos.durability(rclcpp::DurabilityPolicy::Volatile);
+  image_qos.history(rclcpp::HistoryPolicy::KeepLast);
+
+  callback_group_ = create_callback_group(rclcpp::CallbackGroupType::Reentrant);
+
+  rclcpp::SubscriptionOptions sub_options;
+  sub_options.callback_group = callback_group_;
+
+  std::string input_topic = declare_parameter("input_topic", "kitti/camera/color/left/image_raw");
+
+  img_sub_ = create_subscription<sensor_msgs::msg::Image>(
+    input_topic, image_qos,
+    std::bind(&YoloObjectDetection::img_callback, this, std::placeholders::_1),
+    sub_options
+  );
+
+  std::string output_topic = declare_parameter("output_topic", "yolo_object_detection");
+
+  yolo_pub_ = create_publisher<sensor_msgs::msg::Image>(output_topic, image_qos);
+
+  auto timer_period = std::chrono::duration<double>(1.0 / processing_frequency_);
+  timer_ = create_wall_timer(
+    std::chrono::duration_cast<std::chrono::nanoseconds>(timer_period),
+    std::bind(&YoloObjectDetection::timer_callback, this),
+    callback_group_
+  );
+
+  RCLCPP_INFO(get_logger(), "ROS components initialized");
+  RCLCPP_INFO(get_logger(), "Input: %s, Output: %s, Frequency: %.1f Hz",
+    input_topic.c_str(), output_topic.c_str(), processing_frequency_);
 }
 
 void YoloObjectDetection::img_callback(const sensor_msgs::msg::Image::SharedPtr msg)
 {
-  std::lock_guard<std::mutex> lock(mtx_);
-  img_buff_.push(msg);
+  try {
+    std::lock_guard<std::mutex> lock(mtx_);
+
+    if (img_buff_.size() >= static_cast<size_t>(max_processing_queue_size_)) {
+      RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 1000,
+        "Processing queue full, dropping oldest image (queue size: %ld)", img_buff_.size());
+      img_buff_.pop();
+    }
+
+    img_buff_.push(msg);
+
+  } catch (const std::exception & e) {
+    RCLCPP_ERROR(get_logger(), "Exception in image callback: %s", e.what());
+  }
 }
 
 void YoloObjectDetection::timer_callback()
 {
-  if (!img_buff_.empty()) {
-    rclcpp::Time current_time = rclcpp::Node::now();
-    mtx_.lock();
-    if ((current_time - rclcpp::Time(img_buff_.front()->header.stamp)).seconds() > 0.1) {
-      // time sync has problem
-      RCLCPP_WARN(get_logger(), "Timestamp unaligned, please check your IMAGE data.");
-      img_buff_.pop();
-      mtx_.unlock();
-    } else {
-      auto input_msg = img_buff_.front();
-      img_buff_.pop();
-      mtx_.unlock();
+  bool expected = false;
+  if (!processing_in_progress_.compare_exchange_strong(expected, true)) {
+    return;
+  }
 
-      try {
-        cv::Mat cv_image = cv_bridge::toCvCopy(input_msg, "bgr8")->image;
+  sensor_msgs::msg::Image::SharedPtr msg;
 
-        // Inference starts here...
-        std::vector<yolo::Detection> detections = inference_.runInference(cv_image);
-
-        // size_t detection_size = detections.size();
-        // std::cout << "Number of detections:" << detection_size << std::endl;
-
-        for (const auto & detection : detections) {
-          auto box = detection.box;
-          auto class_id = detection.class_id;
-          auto color = colors[class_id % colors.size()];
-
-          // Detection box
-          cv::rectangle(cv_image, box, color, 2);
-
-          // Detection box text
-          std::string class_string = detection.className + ' ' + std::to_string(detection.confidence).substr(0, 4);
-          //  cv::Size text_size = cv::getTextSize(class_string, cv::FONT_HERSHEY_DUPLEX, 1, 2, 0);
-          //  cv::Rect text_box(box.x, box.y - 40, text_size.width + 10, text_size.height + 20);
-
-          //  cv::rectangle(cv_image, text_box, color, cv::FILLED);
-          //  cv::putText(cv_image, class_string, cv::Point(box.x + 5, box.y - 10),
-          //    cv::FONT_HERSHEY_DUPLEX, 1, cv::Scalar(0, 0, 0), 2, 0);
-          cv::rectangle(
-            cv_image, cv::Point(box.x, box.y - 10.0),
-            cv::Point(box.x + box.width, box.y), color, cv::FILLED);
-          cv::putText(
-            cv_image, class_string, cv::Point(box.x, box.y - 5.0),
-            cv::FONT_HERSHEY_SIMPLEX, 0.25, cv::Scalar(0.0, 0.0, 0.0));
-        }
-        // Inference ends here...
-
-        // Convert OpenCV image to ROS Image message
-        auto out_msg = cv_bridge::CvImage(std_msgs::msg::Header(), "bgr8", cv_image).toImageMsg();
-        out_msg->header.frame_id = "cam2_link";
-        out_msg->header.stamp = current_time;
-        yolo_pub_->publish(*out_msg);
-
-      } catch (cv_bridge::Exception & e) {
-        RCLCPP_ERROR(get_logger(), "CV_Bridge exception: %s", e.what());
-      }
+  {
+    std::lock_guard<std::mutex> lock(mtx_);
+    if (img_buff_.empty()) {
+      processing_in_progress_.store(false);
+      return;
     }
+    msg = img_buff_.front();
+    img_buff_.pop();
+  }
+
+  try {
+    cv_bridge::CvImageConstPtr cv_ptr =
+      cv_bridge::toCvShare(msg, sensor_msgs::image_encodings::BGR8);
+
+    if (!cv_ptr || cv_ptr->image.empty()) {
+      RCLCPP_WARN(get_logger(), "Received empty or invalid image");
+      processing_in_progress_.store(false);
+      return;
+    }
+
+
+    cv::Mat image_for_plot = cv_ptr->image.clone();
+
+    std::vector<yolo::Detection> detections;
+
+    try {
+      detections = inference_.runInference(cv_ptr->image);
+    } catch (...) {
+      RCLCPP_WARN(get_logger(), "Inference failed, skipping this frame");
+      processing_in_progress_.store(false);
+      return;
+    }
+
+    for (const auto & detection : detections) {
+      auto box = detection.box;
+      auto class_id = detection.class_id;
+      auto color = COLORS[class_id % COLORS.size()];
+
+      cv::rectangle(image_for_plot, box, color, 2);
+
+      std::string class_string = detection.className + ' ' +
+        std::to_string(detection.confidence).substr(0, 4);
+
+      cv::rectangle(
+        image_for_plot, cv::Point(box.x, box.y - 10.0),
+        cv::Point(box.x + box.width, box.y), color, cv::FILLED);
+      cv::putText(
+        image_for_plot, class_string, cv::Point(box.x, box.y - 5.0),
+        cv::FONT_HERSHEY_SIMPLEX, 0.25, cv::Scalar(0.0, 0.0, 0.0));
+    }
+
+    if (yolo_pub_->get_subscription_count() > 0) {
+      publish_detection_result_image(image_for_plot, msg->header);
+    }
+
+  } catch (const cv_bridge::Exception & e) {
+    RCLCPP_ERROR(get_logger(), "cv_bridge exception: %s", e.what());
+  } catch (const std::exception & e) {
+    RCLCPP_ERROR(get_logger(), "Exception during image processing: %s", e.what());
+  }
+
+  processing_in_progress_.store(false);
+}
+
+void YoloObjectDetection::publish_detection_result_image(
+  const cv::Mat & result_image,
+  const std_msgs::msg::Header & header)
+{
+  try {
+    cv_bridge::CvImage cv_image;
+    cv_image.header = header;
+    cv_image.encoding = sensor_msgs::image_encodings::BGR8;
+    cv_image.image = result_image;
+
+    auto output_msg = cv_image.toImageMsg();
+    yolo_pub_->publish(*output_msg);
+
+  } catch (const std::exception & e) {
+    RCLCPP_ERROR(get_logger(), "Exception during result publishing: %s", e.what());
   }
 }
 
