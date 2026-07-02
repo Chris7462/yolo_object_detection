@@ -11,7 +11,12 @@
   <depend>rclcpp</depend>
   <depend>sensor_msgs</depend>
   <depend>cv_bridge</depend>
-  <build_depend>yolo_inference</build_depend>
+
+  <!-- System dependencies -->
+  <depend>libopencv-dev</depend>
+
+  <!-- Local library dependencies -->
+  <depend>yolo_inference</depend>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
