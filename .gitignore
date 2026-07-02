@@ -16,7 +16,7 @@
 *.aux
 *.log
 *.pdf
-*.onnx
+#*.onnx
 *.pt
 
 # Ignore build, devel, and logs folder
