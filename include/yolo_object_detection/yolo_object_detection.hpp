@@ -61,6 +61,8 @@ private:
   fs::path model_path_;
   fs::path model_file_;
 
+  std::string input_topic_;
+
   int max_processing_queue_size_;
   double processing_frequency_;
 };

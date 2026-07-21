@@ -13,6 +13,13 @@ int main(int argc, char ** argv)
 
   auto node = std::make_shared<yolo_object_detection::YoloObjectDetection>();
 
+  // If parameter or inferencer initialization failed inside the constructor,
+  // it calls rclcpp::shutdown() internally. Detect that here and exit with
+  // a non-zero status instead of proceeding to spin a half-constructed node.
+  if (!rclcpp::ok()) {
+    return 1;
+  }
+
   rclcpp::executors::EventsCBGExecutor executor;
   executor.add_node(node);
 

@@ -4,5 +4,9 @@ yolo_object_detection_node:
     model_file: "yolov8s.onnx"
     processing_frequency: 50.0
     max_processing_queue_size: 3
-    input_topic: "kitti/camera/color/left/image_raw"
+    # NOTE: input_topic is intentionally NOT set here. It has no safe default
+    # since it differs per data source (KITTI bag, CARLA simulator, live
+    # sensors, ...). It MUST be remapped via the launch file
+    # (e.g. input_topic:=/carla/hero/cam2/image), or the node will
+    # refuse to start.
     output_topic: "yolo_object_detection"

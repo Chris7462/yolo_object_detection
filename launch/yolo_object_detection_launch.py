@@ -11,8 +11,17 @@ from launch_ros.actions import Node
 def generate_launch_description():
     declare_use_sim_time = DeclareLaunchArgument(
         'use_sim_time',
-        default_value='false',  # or 'true' if appropriate
+        default_value='false',
         description='Use simulation time'
+    )
+
+    declare_input_topic = DeclareLaunchArgument(
+        'input_topic',
+        description='Input image topic name. Required - no default, since '
+                     'it differs per data source '
+                     '(e.g. /kitti/camera/color/left/image_raw or '
+                     '/carla/hero/cam2/image). The node will refuse to '
+                     'start if this is not provided.'
     )
 
     params = join(
@@ -27,11 +36,15 @@ def generate_launch_description():
         output='screen',
         parameters=[
             params,
-            {'use_sim_time': LaunchConfiguration('use_sim_time')}
+            {
+                'use_sim_time': LaunchConfiguration('use_sim_time'),
+                'input_topic': LaunchConfiguration('input_topic'),
+            }
         ]
     )
 
     return LaunchDescription([
         declare_use_sim_time,
+        declare_input_topic,
         yolo_object_detection_node
     ])

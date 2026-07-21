@@ -71,6 +71,15 @@ bool YoloObjectDetection::initialize_parameters()
       return false;
     }
 
+    input_topic_ = declare_parameter("input_topic", std::string(""));
+    if (input_topic_.empty()) {
+      RCLCPP_ERROR(get_logger(),
+        "input_topic is empty. This must be remapped by the launch file "
+        "(e.g. input_topic:=/carla/hero/cam2/image) - refusing to start "
+        "with an unspecified input source.");
+      return false;
+    }
+
     return true;
 
   } catch (const std::exception & e) {
@@ -91,10 +100,8 @@ void YoloObjectDetection::initialize_ros_components()
   rclcpp::SubscriptionOptions sub_options;
   sub_options.callback_group = callback_group_;
 
-  std::string input_topic = declare_parameter("input_topic", "kitti/camera/color/left/image_raw");
-
   img_sub_ = create_subscription<sensor_msgs::msg::Image>(
-    input_topic, image_qos,
+    input_topic_, image_qos,
     std::bind(&YoloObjectDetection::img_callback, this, std::placeholders::_1),
     sub_options
   );
@@ -112,7 +119,7 @@ void YoloObjectDetection::initialize_ros_components()
 
   RCLCPP_INFO(get_logger(), "ROS components initialized");
   RCLCPP_INFO(get_logger(), "Input: %s, Output: %s, Frequency: %.1f Hz",
-    input_topic.c_str(), output_topic.c_str(), processing_frequency_);
+    input_topic_.c_str(), output_topic.c_str(), processing_frequency_);
 }
 
 void YoloObjectDetection::img_callback(const sensor_msgs::msg::Image::SharedPtr msg)
